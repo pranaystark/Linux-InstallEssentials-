@@ -1,0 +1,166 @@
+#Powertop
+cat << EOF | sudo tee /etc/systemd/system/powertop.service
+[Unit]
+Description=PowerTOP auto tune
+
+[Service]
+Type=oneshot
+Environment="TERM=dumb"
+RemainAfterExit=true
+ExecStart=/usr/sbin/powertop --auto-tune
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable powertop.service
+
+echo "Note: on Linux with systemd, make sure /etc/rc.local is executed at startup by the compatibility service"
+
+systemctl status rc-local.service
+Implementing Powertop Suggestion On Battery And Back To Maximize Performance On Ac Power
+
+For that you need to make a script that run powertop suggestion on battery and maximize the performance on ac power
+
+Place it in /etc/pm/power.d/ and give execution rights
+
+sudo gedit /etc/pm/power.d/power
+Copy paste the following the following in power file
+
+ #!/bin/sh
+
+ # Shell script to reduce energy consumption when running battery. Place
+ # it in /etc/pm/power.d/ and give execution rights.
+
+ if on_ac_power; then
+
+ # Start AC powered settings --------------------------------------------#
+
+
+ # Disable laptop mode
+ echo 0 > /proc/sys/vm/laptop_mode
+
+ #NMI watchdog should be turned on
+ for foo in /proc/sys/kernel/nmi_watchdog;
+ do echo 1 > $foo;
+ done
+
+ # Set SATA channel: max performance
+ for foo in /sys/class/scsi_host/host*/link_power_management_policy;
+ do echo max_performance > $foo;
+ done
+
+ # CPU Governor: Performance
+ for foo in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor;
+ do echo performance > $foo;
+ done
+
+ # Disable USB autosuspend
+ for foo in /sys/bus/usb/devices/*/power/level;
+ do echo on > $foo;
+ done
+
+ # Disable PCI autosuspend
+ for foo in /sys/bus/pci/devices/*/power/control;
+ do echo on > $foo;
+ done
+
+ # Disabile audio_card power saving
+ echo 0 > /sys/module/snd_hda_intel/parameters/power_save_controller
+ echo 0 > /sys/module/snd_hda_intel/parameters/power_save
+
+ # End AC powered settings ----------------------------------------------#
+
+ else
+
+ # Start battery powered settings ---------------------------------------#
+
+ # Enable Laptop-Mode disk writing
+ echo 5 > /proc/sys/vm/laptop_mode
+
+ #NMI watchdog should be turned on
+ for foo in /proc/sys/kernel/nmi_watchdog;
+ do echo 0 > $foo;
+ done
+
+ # Set SATA channel to power saving
+ for foo in /sys/class/scsi_host/host*/link_power_management_policy;
+ do echo min_power > $foo;
+ done
+
+ # Select Ondemand CPU Governor
+ for foo in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor;
+ do echo ondemand > $foo;
+ done
+
+ # Activate USB autosuspend
+ for foo in /sys/bus/usb/devices/*/power/level;
+ do echo auto > $foo;
+ done
+
+ # Activate PCI autosuspend
+ for foo in /sys/bus/pci/devices/*/power/control;
+ do echo auto > $foo;
+ done
+
+ # Activate audio card power saving
+ # (sounds shorter than 5 seconds will not be played)
+ echo 5 > /sys/module/snd_hda_intel/parameters/power_save
+ echo 1 > /sys/module/snd_hda_intel/parameters/power_save_controller
+
+ # End battery powered settings -----------------------------------------#
+
+ fi
+Now you need to assign execution permission of power script
+
+ sudo chmod +x /etc/pm/power.d/power
+Now when you Unplugged, Powertop suggestion will take over and maximize the battery life & you Plugged in AC power you will have Max Performance.
+
+#macchager
+
+Auto spoof MAC address on every reboot
+Create a unit file /etc/systemd/system/macspoof@.service.
+
+Paste these lines in /etc/systemd/system/macspoof@.service.
+
+ [Unit]
+ Description=macchanger on %I
+ Wants=network-pre.target
+ Before=network-pre.target
+ BindsTo=sys-subsystem-net-devices-%i.device
+ After=sys-subsystem-net-devices-%i.device
+
+ [Service]
+ ExecStart=/usr/bin/macchanger -e %I
+ Type=oneshot
+
+ [Install]
+ WantedBy=multi-user.target
+Note: Be aware of case-sensitive while writing units.
+
+Enable the service by appending the network interface to the service. For example, I want to change my wlan0 mac address on every boot.
+
+ sudo systemctl enable macspoof@wlan0.service
+Restart your system to changes take effect or do sudo systemctl start macspoof@wlan0.service
+
+Done, now keep reading If you want to know what is happening in this unit file.
+
+#cpufreq
+git clone https://github.com/AdnanHodzic/auto-cpufreq.git
+cd auto-cpufreq && sudo ./auto-cpufreq-installer
+
+Instead run systemctl start auto-cpufreq to start the service. Run systemctl status auto-cpufreq to see the status of service, and systemctl enable auto-cpufreq for service to persist running accross reboots.
+
+kate
+install kde
+uget
+install software center
+brave
+install software center
+jupyternotebook
+install from software center
+
+onlyoffice
+install from software center
+
